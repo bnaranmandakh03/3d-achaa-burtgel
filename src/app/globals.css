@@ -1,0 +1,29 @@
+@import "tailwindcss";
+
+:root {
+  --accent: #12B5A6;
+  --accent-dark: #0C897E;
+  --bg: #FFFFFF;
+  --text: #14211F;
+  --text-secondary: #6B7C78;
+  --border: #E6EDEB;
+}
+
+@theme inline {
+  --font-sans: var(--font-montserrat);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-montserrat), 'Montserrat', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.font-sans {
+  font-family: var(--font-montserrat), 'Montserrat', sans-serif;
+}
