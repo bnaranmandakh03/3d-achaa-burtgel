@@ -2,13 +2,14 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Order, Status, STATUSES, CURRENCY_SYMBOL, ACTIVE_STATUSES, TRACKING_PHONE, Currency } from '@/lib/types';
-import { getOrders, saveOrders } from '@/lib/storage';
+import { getOrders, saveOrders, deleteOrder } from '@/lib/storage';
 import OrderCard from '@/components/OrderCard';
 import OrderModal from '@/components/OrderModal';
 import Toast from '@/components/Toast';
 
 export default function Home() {
   const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Status | 'Бүгд'>('Бүгд');
   const [search, setSearch] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
@@ -16,31 +17,33 @@ export default function Home() {
   const [toast, setToast] = useState('');
 
   useEffect(() => {
-    setOrders(getOrders());
+    getOrders().then((data) => {
+      setOrders(data);
+      setLoading(false);
+    });
   }, []);
 
-  function persistOrders(next: Order[]) {
-    setOrders(next);
-    saveOrders(next);
-  }
-
-  function handleSave(order: Order) {
+  async function handleSave(order: Order) {
     const next = orders.find((o) => o.id === order.id)
       ? orders.map((o) => (o.id === order.id ? order : o))
       : [...orders, order];
-    persistOrders(next);
+    setOrders(next);
+    await saveOrders([order]);
     setModalOpen(false);
     setEditOrder(null);
   }
 
-  function handleStatusChange(id: string, status: Status) {
-    persistOrders(orders.map((o) => (o.id === id ? { ...o, status } : o)));
+  async function handleStatusChange(id: string, status: Status) {
+    const updated = orders.map((o) => (o.id === id ? { ...o, status } : o));
+    setOrders(updated);
+    const order = updated.find((o) => o.id === id);
+    if (order) await saveOrders([order]);
   }
 
-  function handleDelete(id: string) {
-    if (confirm('Энэ захиалгыг устгах уу?')) {
-      persistOrders(orders.filter((o) => o.id !== id));
-    }
+  async function handleDelete(id: string) {
+    if (!confirm('Энэ захиалгыг устгах уу?')) return;
+    setOrders(orders.filter((o) => o.id !== id));
+    await deleteOrder(id);
   }
 
   function handleEdit(order: Order) {
@@ -62,9 +65,7 @@ export default function Home() {
       return;
     }
     const nums = active.map((o) => o.tracking).join(',');
-    try {
-      await navigator.clipboard.writeText(TRACKING_PHONE);
-    } catch {}
+    try { await navigator.clipboard.writeText(TRACKING_PHONE); } catch {}
     showToast(`Утасны дугаар хуулагдлаа: ${TRACKING_PHONE} — 17track шаардвал буулгана уу`);
     window.open(`https://t.17track.net/en#nums=${nums}`, '_blank');
   }
@@ -96,7 +97,6 @@ export default function Home() {
   const inTransit = orders.filter((o) => o.status === 'Замд яваа').length;
   const delivered = orders.filter((o) => o.status === 'Хүргэгдсэн').length;
 
-  // Sum amounts by currency (amount and ship may use different currencies)
   const currencyTotals: Partial<Record<Currency, number>> = {};
   for (const o of orders) {
     currencyTotals[o.currency] = (currencyTotals[o.currency] ?? 0) + o.amount;
@@ -107,13 +107,11 @@ export default function Home() {
     .map(([c, v]) => `${CURRENCY_SYMBOL[c]}${v.toLocaleString()}`)
     .join(' · ') || '—';
 
-  // Filter counts
   const statusCounts = STATUSES.reduce<Record<string, number>>((acc, s) => {
     acc[s] = orders.filter((o) => o.status === s).length;
     return acc;
   }, {});
 
-  // Filtered & sorted
   const filtered = orders
     .filter((o) => filter === 'Бүгд' || o.status === filter)
     .filter((o) => {
@@ -177,10 +175,10 @@ export default function Home() {
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: 'Нийт захиалга', value: totalCount },
-            { label: 'Замд яваа', value: inTransit },
-            { label: 'Хүргэгдсэн', value: delivered },
-            { label: 'Захиалгын дүн', value: totalStr, wide: true },
+            { label: 'Нийт захиалга', value: loading ? '…' : totalCount },
+            { label: 'Замд яваа', value: loading ? '…' : inTransit },
+            { label: 'Хүргэгдсэн', value: loading ? '…' : delivered },
+            { label: 'Захиалгын дүн', value: loading ? '…' : totalStr },
           ].map((s) => (
             <div key={s.label} className="bg-white border border-[#E6EDEB] rounded-lg p-4">
               <div className="text-xs font-semibold text-[#6B7C78] uppercase tracking-wide mb-1">{s.label}</div>
@@ -221,10 +219,10 @@ export default function Home() {
 
         {/* Order list */}
         <div className="space-y-3">
-          {filtered.length === 0 ? (
-            <div className="text-center py-16 text-[#6B7C78] text-sm font-medium">
-              Захиалга олдсонгүй
-            </div>
+          {loading ? (
+            <div className="text-center py-16 text-[#6B7C78] text-sm font-medium">Уншиж байна…</div>
+          ) : filtered.length === 0 ? (
+            <div className="text-center py-16 text-[#6B7C78] text-sm font-medium">Захиалга олдсонгүй</div>
           ) : (
             filtered.map((o) => (
               <OrderCard
