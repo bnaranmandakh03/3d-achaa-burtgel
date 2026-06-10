@@ -1,8 +1,9 @@
 import { Order } from './types';
-import { supabase } from './supabase';
 
 const LOCAL_KEY = 'freight_ledger_orders';
 const SEEDED_KEY = 'freight_ledger_seeded';
+
+const GAS_URL = process.env.NEXT_PUBLIC_GAS_URL ?? '';
 
 const SEED_ORDERS: Order[] = [
   {
@@ -72,19 +73,27 @@ function migrate(orders: Order[]): Order[] {
   }));
 }
 
-// ── Supabase ──────────────────────────────────────────────────────────────────
+// ── Google Apps Script ────────────────────────────────────────────────────────
+
+async function gasRequest(body: object): Promise<unknown> {
+  if (!GAS_URL) throw new Error('GAS_URL not configured');
+  const res = await fetch(GAS_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`GAS error ${res.status}`);
+  return res.json();
+}
 
 export async function getOrders(): Promise<Order[]> {
+  if (!GAS_URL) return getLocalOrders();
   try {
-    const { data, error } = await supabase
-      .from('orders')
-      .select('*')
-      .order('date', { ascending: false });
-
-    if (error) throw error;
+    const res = await fetch(`${GAS_URL}?action=get`);
+    if (!res.ok) throw new Error(`GAS error ${res.status}`);
+    const data = (await res.json()) as Order[];
 
     if (!data || data.length === 0) {
-      // Only seed once — never re-seed after user deletes all orders
       const alreadySeeded = typeof window !== 'undefined' && localStorage.getItem(SEEDED_KEY);
       if (!alreadySeeded) {
         localStorage.setItem(SEEDED_KEY, '1');
@@ -93,40 +102,36 @@ export async function getOrders(): Promise<Order[]> {
       }
       return [];
     }
-    // Mark as seeded so future empty-table states aren't re-seeded
     if (typeof window !== 'undefined') localStorage.setItem(SEEDED_KEY, '1');
-
-    return migrate(data as Order[]);
+    return migrate(data);
   } catch (err) {
-    console.warn('Supabase unavailable, falling back to localStorage', err);
+    console.warn('GAS unavailable, falling back to localStorage', err);
     return getLocalOrders();
   }
 }
 
 export async function saveOrders(orders: Order[]): Promise<boolean> {
+  if (!GAS_URL) { saveLocalOrders(orders); return false; }
   try {
-    // DELETE + INSERT avoids PostgREST camelCase column issues in upsert conflict resolution
-    const ids = orders.map((o) => o.id);
-    const { error: delError } = await supabase.from('orders').delete().in('id', ids);
-    if (delError) throw delError;
-    const { error: insError } = await supabase.from('orders').insert(orders);
-    if (insError) throw insError;
+    await gasRequest({ action: 'upsert', orders });
     return true;
   } catch (err) {
-    console.error('Supabase save failed:', err);
+    console.error('GAS save failed:', err);
     saveLocalOrders(orders);
     return false;
   }
 }
 
 export async function deleteOrder(id: string): Promise<void> {
+  if (!GAS_URL) {
+    saveLocalOrders(getLocalOrders().filter((o) => o.id !== id));
+    return;
+  }
   try {
-    const { error } = await supabase.from('orders').delete().eq('id', id);
-    if (error) throw error;
+    await gasRequest({ action: 'delete', id });
   } catch (err) {
-    console.warn('Supabase unavailable, falling back to localStorage', err);
-    const orders = getLocalOrders().filter((o) => o.id !== id);
-    saveLocalOrders(orders);
+    console.warn('GAS unavailable, falling back to localStorage', err);
+    saveLocalOrders(getLocalOrders().filter((o) => o.id !== id));
   }
 }
 
