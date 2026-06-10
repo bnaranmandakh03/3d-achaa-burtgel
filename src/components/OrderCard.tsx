@@ -1,6 +1,6 @@
 'use client';
 
-import { Order, Status, STATUSES, STATUS_COLORS, CURRENCY_SYMBOL, TRACKING_PHONE, ACTIVE_STATUSES } from '@/lib/types';
+import { Order, Status, STATUSES, STATUS_COLORS, CURRENCY_SYMBOL, ROUTE_LABEL, ROUTE_COLOR, TRACKING_PHONE } from '@/lib/types';
 import DeadlinePill from './DeadlinePill';
 
 interface OrderCardProps {
@@ -9,6 +9,7 @@ interface OrderCardProps {
   onEdit: (order: Order) => void;
   onDelete: (id: string) => void;
   onToast: (msg: string) => void;
+  marginMNT?: number | null; // pre-calculated from page level
 }
 
 function fmt(amount: number, currency: Order['currency']) {
@@ -16,17 +17,18 @@ function fmt(amount: number, currency: Order['currency']) {
   return `${sym}${amount.toLocaleString()}`;
 }
 
-export default function OrderCard({ order, onStatusChange, onEdit, onDelete, onToast }: OrderCardProps) {
+export default function OrderCard({ order, onStatusChange, onEdit, onDelete, onToast, marginMNT }: OrderCardProps) {
   const sameCurrency = order.currency === order.shipCurrency;
   const sym = CURRENCY_SYMBOL[order.currency];
 
   async function handleTrack() {
-    try {
-      await navigator.clipboard.writeText(TRACKING_PHONE);
-    } catch {}
+    try { await navigator.clipboard.writeText(TRACKING_PHONE); } catch {}
     onToast(`Утасны дугаар хуулагдлаа: ${TRACKING_PHONE} — 17track шаардвал буулгана уу`);
     window.open(`https://t.17track.net/en#nums=${order.tracking}`, '_blank');
   }
+
+  const hasMargin = order.sellPrice > 0 && marginMNT !== null && marginMNT !== undefined;
+  const marginPositive = hasMargin && marginMNT! >= 0;
 
   return (
     <div className="bg-white border border-[#E6EDEB] rounded-lg p-4 sm:p-5 hover:shadow-md transition-shadow duration-150">
@@ -45,11 +47,17 @@ export default function OrderCard({ order, onStatusChange, onEdit, onDelete, onT
               className="text-white text-xs font-semibold px-2 py-0.5 rounded-full border-none cursor-pointer appearance-none pr-5 outline-none"
             >
               {STATUSES.map((s) => (
-                <option key={s} value={s} style={{ backgroundColor: STATUS_COLORS[s] }}>
-                  {s}
-                </option>
+                <option key={s} value={s} style={{ backgroundColor: STATUS_COLORS[s] }}>{s}</option>
               ))}
             </select>
+            {order.route && (
+              <span
+                className="text-xs font-bold px-2 py-0.5 rounded-full text-white"
+                style={{ backgroundColor: ROUTE_COLOR[order.route] }}
+              >
+                {ROUTE_LABEL[order.route]}
+              </span>
+            )}
           </div>
 
           <div className="text-sm text-[#6B7C78] font-medium mb-2">
@@ -72,11 +80,18 @@ export default function OrderCard({ order, onStatusChange, onEdit, onDelete, onT
             {' · '}
             Тээвэр{' '}
             <span className="text-[#14211F] font-medium">{fmt(order.ship, order.shipCurrency)}</span>
+            {order.sellPrice > 0 && (
+              <>
+                {' · '}
+                Борлуулах{' '}
+                <span className="text-[#14211F] font-medium">{fmt(order.sellPrice, order.sellCurrency)}</span>
+              </>
+            )}
           </div>
         </div>
 
-        {/* Right: total + actions */}
-        <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-2 sm:gap-3 sm:min-w-[140px]">
+        {/* Right: total + margin + actions */}
+        <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-2 sm:gap-3 sm:min-w-[150px]">
           <div className="text-right">
             <div className="text-xs text-[#6B7C78] mb-0.5">Нийт өртөг</div>
             {sameCurrency ? (
@@ -85,6 +100,15 @@ export default function OrderCard({ order, onStatusChange, onEdit, onDelete, onT
               <div className="text-sm font-bold text-[#14211F] leading-snug">
                 <div>{fmt(order.amount, order.currency)}</div>
                 <div className="text-[#6B7C78] font-medium">+ {fmt(order.ship, order.shipCurrency)}</div>
+              </div>
+            )}
+
+            {hasMargin && (
+              <div className="mt-1.5 pt-1.5 border-t border-[#E6EDEB]">
+                <div className="text-xs text-[#6B7C78] mb-0.5">Ашиг</div>
+                <div className={`text-sm font-bold ${marginPositive ? 'text-[#2F8D6A]' : 'text-[#9A3030]'}`}>
+                  {marginPositive ? '+' : ''}₮{marginMNT!.toLocaleString()}
+                </div>
               </div>
             )}
           </div>
