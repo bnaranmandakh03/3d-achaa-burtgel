@@ -2,6 +2,7 @@ import { Order } from './types';
 import { supabase } from './supabase';
 
 const LOCAL_KEY = 'freight_ledger_orders';
+const SEEDED_KEY = 'freight_ledger_seeded';
 
 const SEED_ORDERS: Order[] = [
   {
@@ -67,9 +68,17 @@ export async function getOrders(): Promise<Order[]> {
     if (error) throw error;
 
     if (!data || data.length === 0) {
-      await saveOrders(SEED_ORDERS);
-      return SEED_ORDERS;
+      // Only seed once — never re-seed after user deletes all orders
+      const alreadySeeded = typeof window !== 'undefined' && localStorage.getItem(SEEDED_KEY);
+      if (!alreadySeeded) {
+        localStorage.setItem(SEEDED_KEY, '1');
+        await saveOrders(SEED_ORDERS);
+        return SEED_ORDERS;
+      }
+      return [];
     }
+    // Mark as seeded so future empty-table states aren't re-seeded
+    if (typeof window !== 'undefined') localStorage.setItem(SEEDED_KEY, '1');
 
     return migrateShipCurrency(data as Order[]);
   } catch (err) {
