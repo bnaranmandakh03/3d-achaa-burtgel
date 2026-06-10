@@ -1,6 +1,7 @@
 import { Order } from './types';
+import { supabase } from './supabase';
 
-const KEY = 'freight_ledger_orders';
+const LOCAL_KEY = 'freight_ledger_orders';
 
 const SEED_ORDERS: Order[] = [
   {
@@ -50,23 +51,72 @@ const SEED_ORDERS: Order[] = [
   },
 ];
 
-export function getOrders(): Order[] {
-  if (typeof window === 'undefined') return [];
+function migrateShipCurrency(orders: Order[]): Order[] {
+  return orders.map((o) => (!o.shipCurrency ? { ...o, shipCurrency: o.currency } : o));
+}
+
+// ── Supabase ──────────────────────────────────────────────────────────────────
+
+export async function getOrders(): Promise<Order[]> {
   try {
-    const raw = localStorage.getItem(KEY);
-    if (!raw) {
-      saveOrders(SEED_ORDERS);
+    const { data, error } = await supabase
+      .from('orders')
+      .select('*')
+      .order('date', { ascending: false });
+
+    if (error) throw error;
+
+    if (!data || data.length === 0) {
+      await saveOrders(SEED_ORDERS);
       return SEED_ORDERS;
     }
-    const parsed = JSON.parse(raw) as Order[];
-    // Migrate old orders that predate shipCurrency
-    return parsed.map((o) => ({ shipCurrency: o.currency, ...o }));
+
+    return migrateShipCurrency(data as Order[]);
+  } catch (err) {
+    console.warn('Supabase unavailable, falling back to localStorage', err);
+    return getLocalOrders();
+  }
+}
+
+export async function saveOrders(orders: Order[]): Promise<void> {
+  try {
+    // Upsert all orders; Supabase matches on primary key (id)
+    const { error } = await supabase
+      .from('orders')
+      .upsert(orders, { onConflict: 'id' });
+
+    if (error) throw error;
+  } catch (err) {
+    console.warn('Supabase unavailable, falling back to localStorage', err);
+    saveLocalOrders(orders);
+  }
+}
+
+export async function deleteOrder(id: string): Promise<void> {
+  try {
+    const { error } = await supabase.from('orders').delete().eq('id', id);
+    if (error) throw error;
+  } catch (err) {
+    console.warn('Supabase unavailable, falling back to localStorage', err);
+    const orders = getLocalOrders().filter((o) => o.id !== id);
+    saveLocalOrders(orders);
+  }
+}
+
+// ── localStorage fallback ─────────────────────────────────────────────────────
+
+function getLocalOrders(): Order[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(LOCAL_KEY);
+    if (!raw) return SEED_ORDERS;
+    return migrateShipCurrency(JSON.parse(raw) as Order[]);
   } catch {
     return [];
   }
 }
 
-export function saveOrders(orders: Order[]): void {
+function saveLocalOrders(orders: Order[]): void {
   if (typeof window === 'undefined') return;
-  localStorage.setItem(KEY, JSON.stringify(orders));
+  localStorage.setItem(LOCAL_KEY, JSON.stringify(orders));
 }
