@@ -30,7 +30,8 @@ export default function Home() {
       ? orders.map((o) => (o.id === order.id ? order : o))
       : [...orders, order];
     setOrders(next);
-    await saveOrders([order]);
+    const ok = await saveOrders([order]);
+    if (!ok) showToast('⚠ Локал хадгаллаа — интернэт холболтоо шалгана уу');
     setModalOpen(false);
     setEditOrder(null);
   }
@@ -39,7 +40,10 @@ export default function Home() {
     const updated = orders.map((o) => (o.id === id ? { ...o, status } : o));
     setOrders(updated);
     const order = updated.find((o) => o.id === id);
-    if (order) await saveOrders([order]);
+    if (order) {
+      const ok = await saveOrders([order]);
+      if (!ok) showToast('⚠ Локал хадгаллаа — интернэт холболтоо шалгана уу');
+    }
   }
 
   async function handleDelete(id: string) {
