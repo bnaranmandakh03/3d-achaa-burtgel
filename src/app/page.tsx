@@ -160,10 +160,7 @@ export default function Home() {
                 <h1 className="text-xl sm:text-2xl font-extrabold text-[#14211F] tracking-tight">
                   АЧААНЫ БҮРТГЭЛ
                 </h1>
-                <span className="text-xs font-bold bg-[#12B5A6] text-white px-2 py-0.5 rounded-full">
-                  ХЯТАД → МОНГОЛ
-                </span>
-                <span className="text-xs font-bold bg-[#12B5A6] text-white px-2 py-0.5 rounded-full">
+<span className="text-xs font-bold bg-[#12B5A6] text-white px-2 py-0.5 rounded-full">
                   Солар Крафт
                 </span>
               </div>
