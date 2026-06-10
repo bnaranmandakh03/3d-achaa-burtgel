@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Order, Status, STATUSES, CURRENCY_SYMBOL, ACTIVE_STATUSES, TRACKING_PHONE, Currency } from '@/lib/types';
 import { getOrders, saveOrders, deleteOrder } from '@/lib/storage';
+import { useExchangeRates } from '@/lib/useExchangeRates';
 import OrderCard from '@/components/OrderCard';
 import OrderModal from '@/components/OrderModal';
 import Toast from '@/components/Toast';
@@ -10,6 +11,7 @@ import Toast from '@/components/Toast';
 export default function Home() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const { rates, toMNT } = useExchangeRates();
   const [filter, setFilter] = useState<Status | 'Бүгд'>('Бүгд');
   const [search, setSearch] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
@@ -107,6 +109,17 @@ export default function Home() {
     .map(([c, v]) => `${CURRENCY_SYMBOL[c]}${v.toLocaleString()}`)
     .join(' · ') || '—';
 
+  // MNT conversion total
+  const mntTotal = rates
+    ? orders.reduce((sum, o) => sum + toMNT(o.amount, o.currency) + toMNT(o.ship, o.shipCurrency), 0)
+    : null;
+  const mntTotalStr = mntTotal !== null
+    ? `₮${mntTotal.toLocaleString()}`
+    : '…';
+  const rateNote = rates
+    ? `$1=${Math.round(1 / rates.USD).toLocaleString()}₮  ¥1=${Math.round(1 / rates.CNY).toLocaleString()}₮`
+    : null;
+
   const statusCounts = STATUSES.reduce<Record<string, number>>((acc, s) => {
     acc[s] = orders.filter((o) => o.status === s).length;
     return acc;
@@ -174,18 +187,40 @@ export default function Home() {
       <main className="max-w-[1080px] mx-auto px-4 sm:px-6 py-6 space-y-6">
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {[
-            { label: 'Нийт захиалга', value: loading ? '…' : totalCount },
-            { label: 'Замд яваа', value: loading ? '…' : inTransit },
-            { label: 'Хүргэгдсэн', value: loading ? '…' : delivered },
-            { label: 'Захиалгын дүн', value: loading ? '…' : totalStr },
-          ].map((s) => (
-            <div key={s.label} className="bg-white border border-[#E6EDEB] rounded-lg p-4">
-              <div className="text-xs font-semibold text-[#6B7C78] uppercase tracking-wide mb-1">{s.label}</div>
-              <div className="text-xl font-bold text-[#12B5A6] truncate">{s.value}</div>
-            </div>
-          ))}
+          <div className="bg-white border border-[#E6EDEB] rounded-lg p-4">
+            <div className="text-xs font-semibold text-[#6B7C78] uppercase tracking-wide mb-1">Нийт захиалга</div>
+            <div className="text-xl font-bold text-[#12B5A6]">{loading ? '…' : totalCount}</div>
+          </div>
+          <div className="bg-white border border-[#E6EDEB] rounded-lg p-4">
+            <div className="text-xs font-semibold text-[#6B7C78] uppercase tracking-wide mb-1">Замд яваа</div>
+            <div className="text-xl font-bold text-[#12B5A6]">{loading ? '…' : inTransit}</div>
+          </div>
+          <div className="bg-white border border-[#E6EDEB] rounded-lg p-4">
+            <div className="text-xs font-semibold text-[#6B7C78] uppercase tracking-wide mb-1">Хүргэгдсэн</div>
+            <div className="text-xl font-bold text-[#12B5A6]">{loading ? '…' : delivered}</div>
+          </div>
+          <div className="bg-white border border-[#E6EDEB] rounded-lg p-4">
+            <div className="text-xs font-semibold text-[#6B7C78] uppercase tracking-wide mb-1">Захиалгын дүн</div>
+            <div className="text-sm font-bold text-[#12B5A6] truncate">{loading ? '…' : totalStr}</div>
+          </div>
         </div>
+
+        {/* MNT total conversion card */}
+        {!loading && (
+          <div className="bg-white border border-[#E6EDEB] rounded-lg p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div>
+              <div className="text-xs font-semibold text-[#6B7C78] uppercase tracking-wide mb-1">
+                Нийт өртөг — төгрөгөөр
+              </div>
+              <div className="text-2xl font-extrabold text-[#12B5A6]">{mntTotalStr}</div>
+            </div>
+            {rateNote && (
+              <div className="text-xs text-[#6B7C78] font-medium bg-[#F5F8F7] px-3 py-1.5 rounded-md self-start sm:self-auto">
+                {rateNote}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Filter chips + search */}
         <div className="flex flex-col sm:flex-row gap-3">
