@@ -24,6 +24,7 @@ const EMPTY: Omit<Order, 'id'> = {
   status: 'Захиалсан',
   currency: 'USD',
   amount: 0,
+  shipCurrency: 'USD',
   ship: 0,
 };
 
@@ -145,7 +146,7 @@ export default function OrderModal({ initial, onSave, onClose }: OrderModalProps
             </select>
           </div>
 
-          {/* Currency + Amount + Ship */}
+          {/* Currency + Amount */}
           <div className="grid grid-cols-3 gap-3">
             <div>
               <label className={labelCls}>Валют</label>
@@ -153,7 +154,7 @@ export default function OrderModal({ initial, onSave, onClose }: OrderModalProps
                 {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
-            <div>
+            <div className="col-span-2">
               <label className={labelCls}>Захиалгын дүн</label>
               <input
                 type="number"
@@ -164,7 +165,17 @@ export default function OrderModal({ initial, onSave, onClose }: OrderModalProps
                 placeholder="0"
               />
             </div>
+          </div>
+
+          {/* Ship Currency + Ship Cost */}
+          <div className="grid grid-cols-3 gap-3">
             <div>
+              <label className={labelCls}>Тээврийн валют</label>
+              <select value={form.shipCurrency} onChange={(e) => set('shipCurrency', e.target.value as Currency)} className={inputCls}>
+                {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+            <div className="col-span-2">
               <label className={labelCls}>Тээврийн зардал</label>
               <input
                 type="number"

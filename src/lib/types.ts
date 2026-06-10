@@ -19,6 +19,7 @@ export interface Order {
   status: Status;
   currency: Currency;
   amount: number;
+  shipCurrency: Currency;
   ship: number;
 }
 

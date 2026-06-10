@@ -15,7 +15,8 @@ const SEED_ORDERS: Order[] = [
     status: 'Замд яваа',
     currency: 'USD',
     amount: 1200,
-    ship: 85,
+    shipCurrency: 'CNY',
+    ship: 580,
   },
   {
     id: 'seed-2',
@@ -29,6 +30,7 @@ const SEED_ORDERS: Order[] = [
     status: 'Гааль',
     currency: 'CNY',
     amount: 1580,
+    shipCurrency: 'CNY',
     ship: 320,
   },
   {
@@ -43,7 +45,8 @@ const SEED_ORDERS: Order[] = [
     status: 'Захиалсан',
     currency: 'USD',
     amount: 650,
-    ship: 60,
+    shipCurrency: 'MNT',
+    ship: 210000,
   },
 ];
 
@@ -55,7 +58,9 @@ export function getOrders(): Order[] {
       saveOrders(SEED_ORDERS);
       return SEED_ORDERS;
     }
-    return JSON.parse(raw) as Order[];
+    const parsed = JSON.parse(raw) as Order[];
+    // Migrate old orders that predate shipCurrency
+    return parsed.map((o) => ({ shipCurrency: o.currency, ...o }));
   } catch {
     return [];
   }

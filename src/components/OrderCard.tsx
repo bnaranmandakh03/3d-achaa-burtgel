@@ -17,7 +17,7 @@ function fmt(amount: number, currency: Order['currency']) {
 }
 
 export default function OrderCard({ order, onStatusChange, onEdit, onDelete, onToast }: OrderCardProps) {
-  const total = order.amount + order.ship;
+  const sameCurrency = order.currency === order.shipCurrency;
   const sym = CURRENCY_SYMBOL[order.currency];
 
   async function handleTrack() {
@@ -71,7 +71,7 @@ export default function OrderCard({ order, onStatusChange, onEdit, onDelete, onT
             <span className="text-[#14211F] font-medium">{fmt(order.amount, order.currency)}</span>
             {' · '}
             Тээвэр{' '}
-            <span className="text-[#14211F] font-medium">{fmt(order.ship, order.currency)}</span>
+            <span className="text-[#14211F] font-medium">{fmt(order.ship, order.shipCurrency)}</span>
           </div>
         </div>
 
@@ -79,7 +79,14 @@ export default function OrderCard({ order, onStatusChange, onEdit, onDelete, onT
         <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-2 sm:gap-3 sm:min-w-[140px]">
           <div className="text-right">
             <div className="text-xs text-[#6B7C78] mb-0.5">Нийт өртөг</div>
-            <div className="text-lg font-bold text-[#14211F]">{sym}{total.toLocaleString()}</div>
+            {sameCurrency ? (
+              <div className="text-lg font-bold text-[#14211F]">{sym}{(order.amount + order.ship).toLocaleString()}</div>
+            ) : (
+              <div className="text-sm font-bold text-[#14211F] leading-snug">
+                <div>{fmt(order.amount, order.currency)}</div>
+                <div className="text-[#6B7C78] font-medium">+ {fmt(order.ship, order.shipCurrency)}</div>
+              </div>
+            )}
           </div>
 
           <div className="flex flex-col gap-1.5 items-end">

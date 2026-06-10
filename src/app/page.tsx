@@ -74,12 +74,12 @@ export default function Home() {
     const headers = [
       'Үйлчлүүлэгч', 'Брэнд', '3D принтерийн загвар', 'Хянах дугаар',
       'Тээвэрлэгч', 'Захиалсан огноо', 'Эцсийн хугацаа', 'Төлөв',
-      'Валют', 'Захиалгын дүн', 'Тээврийн зардал', 'Нийт',
+      'Валют', 'Захиалгын дүн', 'Тээврийн валют', 'Тээврийн зардал',
     ];
     const rows = orders.map((o) => [
       o.customer, o.brand, o.model, o.tracking,
       o.carrier, o.date, o.deadline, o.status,
-      o.currency, o.amount, o.ship, o.amount + o.ship,
+      o.currency, o.amount, o.shipCurrency, o.ship,
     ].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(','));
     const csv = BOM + [headers.join(','), ...rows].join('\r\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -96,10 +96,11 @@ export default function Home() {
   const inTransit = orders.filter((o) => o.status === 'Замд яваа').length;
   const delivered = orders.filter((o) => o.status === 'Хүргэгдсэн').length;
 
-  // Sum amounts by currency
+  // Sum amounts by currency (amount and ship may use different currencies)
   const currencyTotals: Partial<Record<Currency, number>> = {};
   for (const o of orders) {
-    currencyTotals[o.currency] = (currencyTotals[o.currency] ?? 0) + o.amount + o.ship;
+    currencyTotals[o.currency] = (currencyTotals[o.currency] ?? 0) + o.amount;
+    currencyTotals[o.shipCurrency] = (currencyTotals[o.shipCurrency] ?? 0) + o.ship;
   }
   const totalStr = (Object.entries(currencyTotals) as [Currency, number][])
     .filter(([, v]) => v > 0)
