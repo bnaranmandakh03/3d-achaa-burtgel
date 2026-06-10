@@ -76,13 +76,15 @@ export default function Home() {
     const BOM = '﻿';
     const headers = [
       'Үйлчлүүлэгч', 'Брэнд', '3D принтерийн загвар', 'Хянах дугаар',
-      'Тээвэрлэгч', 'Захиалсан огноо', 'Эцсийн хугацаа', 'Төлөв',
+      'Тээвэрлэгч', 'Маршрут', 'Захиалсан огноо', 'Эцсийн хугацаа', 'Төлөв',
       'Валют', 'Захиалгын дүн', 'Тээврийн валют', 'Тээврийн зардал',
+      'Борлуулах валют', 'Борлуулах үнэ',
     ];
     const rows = orders.map((o) => [
       o.customer, o.brand, o.model, o.tracking,
-      o.carrier, o.date, o.deadline, o.status,
+      o.carrier, o.route ?? 'China', o.date, o.deadline, o.status,
       o.currency, o.amount, o.shipCurrency, o.ship,
+      o.sellCurrency, o.sellPrice,
     ].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(','));
     const csv = BOM + [headers.join(','), ...rows].join('\r\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -259,16 +261,22 @@ export default function Home() {
           ) : filtered.length === 0 ? (
             <div className="text-center py-16 text-[#6B7C78] text-sm font-medium">Захиалга олдсонгүй</div>
           ) : (
-            filtered.map((o) => (
-              <OrderCard
-                key={o.id}
-                order={o}
-                onStatusChange={handleStatusChange}
-                onEdit={handleEdit}
-                onDelete={handleDelete}
-                onToast={showToast}
-              />
-            ))
+            filtered.map((o) => {
+              const marginMNT = rates && o.sellPrice > 0
+                ? toMNT(o.sellPrice, o.sellCurrency) - toMNT(o.amount, o.currency) - toMNT(o.ship, o.shipCurrency)
+                : null;
+              return (
+                <OrderCard
+                  key={o.id}
+                  order={o}
+                  onStatusChange={handleStatusChange}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                  onToast={showToast}
+                  marginMNT={marginMNT}
+                />
+              );
+            })
           )}
         </div>
       </main>

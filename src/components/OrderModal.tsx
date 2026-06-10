@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Order, Status, Currency, STATUSES, CURRENCIES, BRANDS, CARRIERS } from '@/lib/types';
+import { Order, Status, Currency, Route, STATUSES, CURRENCIES, BRANDS, ROUTES, ROUTE_LABEL, ALL_CARRIERS } from '@/lib/types';
 
 interface OrderModalProps {
   initial?: Order | null;
@@ -19,6 +19,7 @@ const EMPTY: Omit<Order, 'id'> = {
   model: '',
   tracking: '',
   carrier: 'SF Express',
+  route: 'China',
   date: new Date().toISOString().slice(0, 10),
   deadline: '',
   status: 'Захиалсан',
@@ -26,6 +27,8 @@ const EMPTY: Omit<Order, 'id'> = {
   amount: 0,
   shipCurrency: 'USD',
   ship: 0,
+  sellPrice: 0,
+  sellCurrency: 'MNT',
 };
 
 export default function OrderModal({ initial, onSave, onClose }: OrderModalProps) {
@@ -44,6 +47,11 @@ export default function OrderModal({ initial, onSave, onClose }: OrderModalProps
     setForm((f) => ({ ...f, [key]: val }));
   }
 
+  function handleRouteChange(route: Route) {
+    const carriers = ALL_CARRIERS(route);
+    setForm((f) => ({ ...f, route, carrier: carriers[0] }));
+  }
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.customer.trim()) {
@@ -55,6 +63,8 @@ export default function OrderModal({ initial, onSave, onClose }: OrderModalProps
 
   const inputCls = "w-full border border-[#E6EDEB] rounded-md px-3 py-2 text-sm text-[#14211F] focus:outline-none focus:border-[#12B5A6] focus:ring-1 focus:ring-[#12B5A6] bg-white font-[inherit]";
   const labelCls = "block text-xs font-semibold text-[#6B7C78] mb-1 uppercase tracking-wide";
+
+  const carriers = ALL_CARRIERS(form.route);
 
   return (
     <div
@@ -73,6 +83,27 @@ export default function OrderModal({ initial, onSave, onClose }: OrderModalProps
         </div>
 
         <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
+          {/* Route */}
+          <div>
+            <label className={labelCls}>Маршрут</label>
+            <div className="flex gap-2">
+              {ROUTES.map((r) => (
+                <button
+                  key={r}
+                  type="button"
+                  onClick={() => handleRouteChange(r)}
+                  className={`flex-1 text-xs font-bold py-2 rounded-md border transition-colors ${
+                    form.route === r
+                      ? 'bg-[#12B5A6] border-[#12B5A6] text-white'
+                      : 'bg-white border-[#E6EDEB] text-[#6B7C78] hover:border-[#12B5A6] hover:text-[#12B5A6]'
+                  }`}
+                >
+                  {ROUTE_LABEL[r]}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Customer */}
           <div>
             <label className={labelCls}>Үйлчлүүлэгчийн нэр *</label>
@@ -121,7 +152,7 @@ export default function OrderModal({ initial, onSave, onClose }: OrderModalProps
             <div>
               <label className={labelCls}>Тээвэрлэгч</label>
               <select value={form.carrier} onChange={(e) => set('carrier', e.target.value)} className={inputCls}>
-                {CARRIERS.map((c) => <option key={c} value={c}>{c}</option>)}
+                {carriers.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
           </div>
@@ -185,6 +216,30 @@ export default function OrderModal({ initial, onSave, onClose }: OrderModalProps
                 className={inputCls}
                 placeholder="0"
               />
+            </div>
+          </div>
+
+          {/* Selling price */}
+          <div className="border-t border-[#E6EDEB] pt-4">
+            <div className="text-xs font-bold text-[#14211F] uppercase tracking-wide mb-3">Борлуулалт</div>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className={labelCls}>Борлуулах валют</label>
+                <select value={form.sellCurrency} onChange={(e) => set('sellCurrency', e.target.value as Currency)} className={inputCls}>
+                  {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              <div className="col-span-2">
+                <label className={labelCls}>Борлуулах үнэ</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={form.sellPrice || ''}
+                  onChange={(e) => set('sellPrice', parseFloat(e.target.value) || 0)}
+                  className={inputCls}
+                  placeholder="0"
+                />
+              </div>
             </div>
           </div>
 

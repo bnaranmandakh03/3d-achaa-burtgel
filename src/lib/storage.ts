@@ -12,6 +12,7 @@ const SEED_ORDERS: Order[] = [
     model: 'X1 Carbon',
     tracking: 'SF1234567890CN',
     carrier: 'SF Express',
+    route: 'China',
     date: '2026-05-20',
     deadline: '2026-06-25',
     status: 'Замд яваа',
@@ -19,6 +20,8 @@ const SEED_ORDERS: Order[] = [
     amount: 1200,
     shipCurrency: 'CNY',
     ship: 580,
+    sellPrice: 5500000,
+    sellCurrency: 'MNT',
   },
   {
     id: 'seed-2',
@@ -27,6 +30,7 @@ const SEED_ORDERS: Order[] = [
     model: 'Ender 3 V3 SE',
     tracking: 'YT9876543210YQ',
     carrier: 'YunExpress',
+    route: 'China',
     date: '2026-05-28',
     deadline: '2026-06-18',
     status: 'Гааль',
@@ -34,6 +38,8 @@ const SEED_ORDERS: Order[] = [
     amount: 1580,
     shipCurrency: 'CNY',
     ship: 320,
+    sellPrice: 1200000,
+    sellCurrency: 'MNT',
   },
   {
     id: 'seed-3',
@@ -42,6 +48,7 @@ const SEED_ORDERS: Order[] = [
     model: 'Saturn 4 Ultra',
     tracking: 'CP0011223344CN',
     carrier: 'China Post',
+    route: 'China',
     date: '2026-06-01',
     deadline: '2026-07-10',
     status: 'Захиалсан',
@@ -49,11 +56,19 @@ const SEED_ORDERS: Order[] = [
     amount: 650,
     shipCurrency: 'MNT',
     ship: 210000,
+    sellPrice: 2800000,
+    sellCurrency: 'MNT',
   },
 ];
 
-function migrateShipCurrency(orders: Order[]): Order[] {
-  return orders.map((o) => (!o.shipCurrency ? { ...o, shipCurrency: o.currency } : o));
+function migrate(orders: Order[]): Order[] {
+  return orders.map((o) => ({
+    ...o,
+    route: o.route ?? ('China' as const),
+    shipCurrency: o.shipCurrency ?? o.currency,
+    sellPrice: o.sellPrice ?? 0,
+    sellCurrency: o.sellCurrency ?? ('MNT' as const),
+  }));
 }
 
 // ── Supabase ──────────────────────────────────────────────────────────────────
@@ -80,7 +95,7 @@ export async function getOrders(): Promise<Order[]> {
     // Mark as seeded so future empty-table states aren't re-seeded
     if (typeof window !== 'undefined') localStorage.setItem(SEEDED_KEY, '1');
 
-    return migrateShipCurrency(data as Order[]);
+    return migrate(data as Order[]);
   } catch (err) {
     console.warn('Supabase unavailable, falling back to localStorage', err);
     return getLocalOrders();
@@ -119,7 +134,7 @@ function getLocalOrders(): Order[] {
   try {
     const raw = localStorage.getItem(LOCAL_KEY);
     if (!raw) return SEED_ORDERS;
-    return migrateShipCurrency(JSON.parse(raw) as Order[]);
+    return migrate(JSON.parse(raw) as Order[]);
   } catch {
     return [];
   }

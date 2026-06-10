@@ -4,8 +4,9 @@ import { useState, useEffect } from 'react';
 import { Currency } from './types';
 
 interface Rates {
-  USD: number; // how many USD per 1 MNT
-  CNY: number; // how many CNY per 1 MNT
+  USD: number; // USD per 1 MNT
+  CNY: number; // CNY per 1 MNT
+  KRW: number; // KRW per 1 MNT
   updatedAt: string;
 }
 
@@ -18,7 +19,6 @@ export function useExchangeRates() {
 
   useEffect(() => {
     async function load() {
-      // Try cache first
       try {
         const cached = sessionStorage.getItem(CACHE_KEY);
         if (cached) {
@@ -37,6 +37,7 @@ export function useExchangeRates() {
         const r: Rates = {
           USD: json.rates.USD,
           CNY: json.rates.CNY,
+          KRW: json.rates.KRW,
           updatedAt: json.time_last_update_utc,
         };
         sessionStorage.setItem(CACHE_KEY, JSON.stringify({ rates: r, ts: Date.now() }));
@@ -50,12 +51,11 @@ export function useExchangeRates() {
     load();
   }, []);
 
-  // Convert any amount in any currency to MNT
+  // Convert any amount to MNT
   function toMNT(amount: number, currency: Currency): number {
     if (!rates) return 0;
     if (currency === 'MNT') return amount;
-    // rates.USD = USD per 1 MNT  →  1 USD = 1/rates.USD MNT
-    return Math.round(amount / rates[currency]);
+    return Math.round(amount / rates[currency as keyof Omit<Rates, 'updatedAt'>]);
   }
 
   return { rates, loading, toMNT };
