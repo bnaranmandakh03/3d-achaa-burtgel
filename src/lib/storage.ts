@@ -65,6 +65,7 @@ function migrate(orders: Order[]): Order[] {
   return orders.map((o) => ({
     ...o,
     route: o.route ?? ('China' as const),
+    ship: o.ship ?? 0,
     shipCurrency: o.shipCurrency ?? o.currency,
     sellPrice: o.sellPrice ?? 0,
     sellCurrency: o.sellCurrency ?? ('MNT' as const),
@@ -102,17 +103,19 @@ export async function getOrders(): Promise<Order[]> {
   }
 }
 
-export async function saveOrders(orders: Order[]): Promise<void> {
+export async function saveOrders(orders: Order[]): Promise<boolean> {
   try {
-    // Upsert all orders; Supabase matches on primary key (id)
-    const { error } = await supabase
-      .from('orders')
-      .upsert(orders, { onConflict: 'id' });
-
-    if (error) throw error;
+    // DELETE + INSERT avoids PostgREST camelCase column issues in upsert conflict resolution
+    const ids = orders.map((o) => o.id);
+    const { error: delError } = await supabase.from('orders').delete().in('id', ids);
+    if (delError) throw delError;
+    const { error: insError } = await supabase.from('orders').insert(orders);
+    if (insError) throw insError;
+    return true;
   } catch (err) {
-    console.warn('Supabase unavailable, falling back to localStorage', err);
+    console.error('Supabase save failed:', err);
     saveLocalOrders(orders);
+    return false;
   }
 }
 
@@ -140,7 +143,14 @@ function getLocalOrders(): Order[] {
   }
 }
 
-function saveLocalOrders(orders: Order[]): void {
+function saveLocalOrders(newOrders: Order[]): void {
   if (typeof window === 'undefined') return;
-  localStorage.setItem(LOCAL_KEY, JSON.stringify(orders));
+  let existing: Order[] = [];
+  try {
+    const raw = localStorage.getItem(LOCAL_KEY);
+    if (raw) existing = JSON.parse(raw) as Order[];
+  } catch {}
+  const ids = new Set(newOrders.map((o) => o.id));
+  const merged = [...existing.filter((o) => !ids.has(o.id)), ...newOrders];
+  localStorage.setItem(LOCAL_KEY, JSON.stringify(merged));
 }
