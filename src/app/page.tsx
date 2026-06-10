@@ -159,6 +159,9 @@ export default function Home() {
                 <span className="text-xs font-bold bg-[#12B5A6] text-white px-2 py-0.5 rounded-full">
                   ХЯТАД → МОНГОЛ
                 </span>
+                <span className="text-xs font-bold bg-[#12B5A6] text-white px-2 py-0.5 rounded-full">
+                  Солар Крафт
+                </span>
               </div>
               <p className="text-sm text-[#6B7C78] font-medium">3D принтерийн захиалгын хяналт</p>
             </div>
