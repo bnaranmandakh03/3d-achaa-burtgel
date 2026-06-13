@@ -3,7 +3,7 @@ import { Order } from './types';
 const LOCAL_KEY = 'freight_ledger_orders';
 const SEEDED_KEY = 'freight_ledger_seeded';
 
-const GAS_URL = process.env.NEXT_PUBLIC_GAS_URL ?? '';
+const API = '/api/sheets';
 
 const SEED_ORDERS: Order[] = [
   {
@@ -73,24 +73,22 @@ function migrate(orders: Order[]): Order[] {
   }));
 }
 
-// ── Google Apps Script ────────────────────────────────────────────────────────
+// ── Google Sheets (via Next.js API proxy) ────────────────────────────────────
 
-async function gasRequest(body: object): Promise<unknown> {
-  if (!GAS_URL) throw new Error('GAS_URL not configured');
-  const res = await fetch(GAS_URL, {
+async function apiPost(body: object): Promise<unknown> {
+  const res = await fetch(API, {
     method: 'POST',
-    headers: { 'Content-Type': 'text/plain' },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(`GAS error ${res.status}`);
+  if (!res.ok) throw new Error(`API error ${res.status}`);
   return res.json();
 }
 
 export async function getOrders(): Promise<Order[]> {
-  if (!GAS_URL) return getLocalOrders();
   try {
-    const res = await fetch(`${GAS_URL}?action=get`);
-    if (!res.ok) throw new Error(`GAS error ${res.status}`);
+    const res = await fetch(API);
+    if (!res.ok) throw new Error(`API error ${res.status}`);
     const data = (await res.json()) as Order[];
 
     if (!data || data.length === 0) {
@@ -105,32 +103,27 @@ export async function getOrders(): Promise<Order[]> {
     if (typeof window !== 'undefined') localStorage.setItem(SEEDED_KEY, '1');
     return migrate(data);
   } catch (err) {
-    console.warn('GAS unavailable, falling back to localStorage', err);
+    console.warn('Sheets unavailable, falling back to localStorage', err);
     return getLocalOrders();
   }
 }
 
 export async function saveOrders(orders: Order[]): Promise<boolean> {
-  if (!GAS_URL) { saveLocalOrders(orders); return false; }
   try {
-    await gasRequest({ action: 'upsert', orders });
+    await apiPost({ action: 'upsert', orders });
     return true;
   } catch (err) {
-    console.error('GAS save failed:', err);
+    console.error('Sheets save failed:', err);
     saveLocalOrders(orders);
     return false;
   }
 }
 
 export async function deleteOrder(id: string): Promise<void> {
-  if (!GAS_URL) {
-    saveLocalOrders(getLocalOrders().filter((o) => o.id !== id));
-    return;
-  }
   try {
-    await gasRequest({ action: 'delete', id });
+    await apiPost({ action: 'delete', id });
   } catch (err) {
-    console.warn('GAS unavailable, falling back to localStorage', err);
+    console.warn('Sheets unavailable, falling back to localStorage', err);
     saveLocalOrders(getLocalOrders().filter((o) => o.id !== id));
   }
 }
